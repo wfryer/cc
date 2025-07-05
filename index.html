@@ -1,0 +1,103 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CC BY 4.0 Flickr Attribution Generator</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        #copyBtn { padding: 8px; background-color: #4CAF50; color: white; border: none; cursor: pointer; border-radius: 4px; }
+        #copyBtn:hover { background-color: #45a049; }
+        #copyMsg { display: none; color: green; font-size: 0.9rem; margin-top: 4px; }
+        body { font-family: sans-serif; max-width:600px; margin:40px auto; }
+        label, input, textarea, button { width:100%; margin:8px 0; }
+        textarea { height:120px; }
+        .preview { margin:16px 0; }
+        .license-summary { background:#f9f9f9; padding:8px; border:1px solid #ddd; }
+        .attribution { margin-top: 8px; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+<h1>CC BY 4.0 Flickr Attribution Generator</h1>
+<p><strong>Note:</strong> This tool only works for Flickr images licensed under <em>CC BY 4.0 International</em>. If your image uses an older or different license, try <a href="https://www.imagecodr.org/" target="_blank">ImageCodr.org</a> or <a href="https://code.cog.dog/flickr-cc-helper/" target="_blank">Alan Levine's Flickr CC Helper</a>.</p>
+
+<label for="photoURL">Flickr Image Page URL</label>
+<input id="photoURL" placeholder="https://www.flickr.com/photos/.../251683740/" style="background-color: yellow;" />
+<button id="fetchBtn">Fetch Metadata & Generate</button>
+
+<div class="preview" style="display:none;">
+    <img id="imgPreview" src="" alt="" style="max-width:100%;" />
+    <div class="attribution" id="liveAttribution"></div>
+</div>
+
+<div class="license-summary" style="display:none;">
+    <strong>License:</strong> <span id="licenseName"></span><br />
+    <a id="licenseLink" href="" target="_blank">View license terms</a>
+</div>
+
+<h2>Generated HTML Attribution Code</h2>
+<textarea id="attribCode" readonly></textarea>
+<button id="copyBtn">Copy to Clipboard</button>
+<div id="copyMsg">Attribution HTML copied!</div>
+
+<script>
+const FLICKR_KEY = 'YOUR_FLICKR_API_KEY_HERE';
+$(document).ready(() => {
+    $('#photoURL').focus();
+    $('#attribCode').click(function() { $(this).select(); });
+    $('#copyBtn').click(() => {
+        $('#attribCode').select();
+        document.execCommand('copy');
+        $('#copyMsg').fadeIn(200).delay(1500).fadeOut(500);
+    });
+});
+
+$('#fetchBtn').click(async () => {
+    const pageUrl = $('#photoURL').val().trim();
+    if (!pageUrl) return alert('Please enter a Flickr image page URL.');
+    const m = pageUrl.match(/photos\/[^\/]+\/(\d+)/);
+    if (!m) return alert('URL doesn’t look like a Flickr photo page.');
+    const photoId = m[1];
+
+    const rsp = await fetch(`https://api.flickr.com/services/rest/?method=flickr.photos.getInfo&api_key=${FLICKR_KEY}&photo_id=${photoId}&format=json&nojsoncallback=1`).then(r => r.json());
+    const info = rsp.photo;
+    if (!info) return alert('Could not fetch photo metadata.');
+
+    const title = info.title._content;
+    const author = info.owner.username;
+    const authorProfile = `https://www.flickr.com/people/${info.owner.nsid}/`;
+    const imgSrc = `https://farm${info.farm}.staticflickr.com/${info.server}/${info.id}_${info.secret}.jpg`;
+
+    let licenseName = 'CC BY 4.0';
+    let licenseUrl = 'https://creativecommons.org/licenses/by/4.0/deed.en';
+
+    if (info.license == '0') {
+        licenseName = 'All Rights Reserved';
+        licenseUrl = '';
+        $('#licenseName').text(licenseName);
+        $('#licenseLink').attr('href', '').text('');
+        $('#liveAttribution').html('<span style="color:red; font-weight:bold;">Warning: This image is marked All Rights Reserved. You may not have permission to reuse it.</span>');
+        $('#attribCode').val('').hide();
+        $('#copyBtn').hide();
+        return;
+    }
+
+    $('#imgPreview').attr('src', imgSrc).attr('alt', title);
+    $('.preview, .license-summary').show();
+    $('#licenseName').text(licenseName);
+    $('#licenseLink').attr('href', licenseUrl).text(`View ${licenseName}`);
+
+    const attributionHTML = `<a href="${pageUrl}" target="_blank">${title}</a> (<a rel="license" href="${licenseUrl}" target="_blank">${licenseName}</a>) by <a xmlns:cc="http://creativecommons.org/ns#" rel="cc:attributionURL" property="cc:attributionName" href="${authorProfile}" target="_blank">${author}</a>`;
+    $('#liveAttribution').html(attributionHTML);
+
+    const html = `<div about="${imgSrc}"><a href="${pageUrl}" target="_blank"><img xmlns:dct="http://purl.org/dc/terms/" href="http://purl.org/dc/dcmitype/StillImage" rel="dct:type" src="${imgSrc}" alt="${title} by ${author}, on Flickr" title="${title} by ${author}, on Flickr" border="0"/></a><br/>${attributionHTML}</div>`;
+    $('#attribCode').val(html).show();
+    $('#copyBtn').show();
+});
+</script>
+
+<hr>
+<p>Web app vibe coded by <a href="https://wesfryer.com/" target="_blank">Wes Fryer</a> with help from ChatGPT 4o.</p>
+<p>Check out more of Wes' AI coding experiments on <a href="https://github.com/wfryer/" target="_blank">github.com/wfryer</a> and <a href="https://ai.wesfryer.com/" target="_blank">ai.wesfryer.com</a>.</p>
+</body>
+</html>
